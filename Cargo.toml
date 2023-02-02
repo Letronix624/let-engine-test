@@ -1,5 +1,5 @@
 [package]
-name = "Let-Engine-Test"
+name = "let_engine_test"
 version = "0.1.0"
 edition = "2021"
 

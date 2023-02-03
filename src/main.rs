@@ -1,14 +1,15 @@
 use let_engine::*;
-use winit::window::WindowBuilder;
-use winit::dpi::LogicalSize;
-use winit::event::{
-    Event,
-    WindowEvent, KeyboardInput, VirtualKeyCode
-};
 use std::{
+    sync::{Arc, Mutex},
     time::Instant,
-    sync::mpsc::channel
 };
+use winit::dpi::LogicalSize;
+use winit::event::ElementState;
+use winit::event::Event;
+use winit::event::KeyboardInput;
+use winit::event::VirtualKeyCode;
+use winit::event::WindowEvent;
+use winit::window::WindowBuilder;
 
 fn main() {
     let app_info = AppInfo {
@@ -19,61 +20,102 @@ fn main() {
         .with_title("Test Window")
         .with_min_inner_size(LogicalSize::new(200, 200))
         .with_inner_size(LogicalSize::new(800, 600))
-        // .with_window_icon(Some(
-        //     winit::window::Icon::from_rgba(iconbytes, icondimension.1, icondimension.0).unwrap(),
-        // ))
         .with_always_on_top(false)
-        .with_decorations(true);
-    let mut resources: Resources = Resources::new();
+        .with_decorations(true)
+        .with_transparent(false);
 
-    // resources.add_font("Bani-Regular", include_bytes!("../assets/fonts/Bani-Regular.ttf"));
-    resources.add_texture("rusty", include_bytes!("../assets/textures/rusty.png"));
-    
+    let mut resources = Resources::new();
+    resources.add_texture("rusty", include_bytes!("../assets/textures/rustyl2.png"));
+    resources.add_font(
+        "Bani-Regular",
+        include_bytes!("../assets/fonts/Bani-Regular.ttf"),
+    );
 
     let (mut game, event_loop) = GameBuilder::new()
-        .with_app_info(app_info)
         .with_window_builder(window_builder)
+        .with_app_info(app_info)
         .with_resources(resources)
         .build();
-    
+
+    let mut objects = vec![];
+
+    let mut player1 = Object::new();
+    player1.position = [-0.5, -0.5];
+    player1.size = [0.45, 0.45];
+    player1.color = [1.0, 0.0, 0.0, 1.0];
+    let graphics = VisualObject::new_square();
+    player1.graphics = Some(graphics);
+    let player1 = Arc::new(Mutex::new(ObjectNode::new(
+        player1.clone(),
+        vec![],
+    )));
+    objects.push(player1.clone());
+
+    let mut player = Object::new();
+    player.position = [1.0, -0.0];
+    player.size = [1.0, 1.0];
+    player.color = [0.0, 1.0, 0.0, 1.0];
+    let graphics = VisualObject::new_square();
+    player.graphics = Some(graphics);
+    objects[0].lock().unwrap().children.push(Arc::new(Mutex::new(ObjectNode::new(player, vec![]))));
+
+    let mut player = Object::new();
+    player.position = [0.0, 1.0];
+    player.size = [1.0, 1.0];
+    player.color = [0.0, 0.0, 1.0, 1.0];
+    let graphics = VisualObject::new_square();
+    player.graphics = Some(graphics);
+    objects[0].lock().unwrap().children.push(Arc::new(Mutex::new(ObjectNode::new(player, vec![]))));
+
+    let mut player = Object::new();
+    player.position = [1.0, 0.0];
+    player.size = [1.0, 1.0];
+    player.color = [1.0, 1.0, 0.0, 1.0];
+    let graphics = VisualObject::new_square();
+    player.graphics = Some(graphics);
+    objects[0].lock().unwrap().children[1].lock().unwrap().children.push(Arc::new(Mutex::new(ObjectNode::new(player, vec![]))));
+
+
     let mut dt = Instant::now();
 
-    //objects
+    let timeline = Instant::now();
 
-    let (playersender, playerreceiver) = channel();
-    game.objects.push(playerreceiver);
-
-    let player: Object = Object { position: [0.0, 0.0], size: [0.5, 0.5], rotation: 0.0, color: [1.0, 1.0, 1.0, 1.0], graphics: Some(VisualObject::new(Display::Data).data(Data::square()).texture("rusty")) };
-
-    
-    event_loop.run(move |event, _, control_flow|{
+    event_loop.run(move |event, _, control_flow| {
         control_flow.set_poll();
         match event {
             Event::WindowEvent {
-                event: WindowEvent::KeyboardInput {
-                    input,
-                    ..
-                },
+                event: WindowEvent::CloseRequested,
+                ..
+            } => control_flow.set_exit(),
+            Event::WindowEvent {
+                event: WindowEvent::Resized(_),
                 ..
             } => {
+                game.recreate_swapchain();
+            }
+            Event::WindowEvent {
+                event: WindowEvent::KeyboardInput { input, .. },
+                ..
+            } => {
+                if input.state == ElementState::Pressed {
+                    println!("{:?}", input.virtual_keycode);
+                }
+
                 if input.virtual_keycode == Some(VirtualKeyCode::Escape) {
                     control_flow.set_exit();
                 }
-            },
-            Event::WindowEvent {
-                event: WindowEvent::CloseRequested,
-                ..
-            } => {
-                control_flow.set_exit();
-            },
+            }
             Event::RedrawEventsCleared => {
-                playersender.send(player.clone()).unwrap();
+                objects[0].lock().unwrap().object.position = [
+                    (timeline.elapsed().as_secs_f32() * 2.0).cos() / 3.0 -0.5,
+                    (timeline.elapsed().as_secs_f32() * 2.0).sin() / 3.0 -0.5,
+                ];
+                game.objects = objects.clone();
                 game.update();
-                let delta_time = dt.elapsed().as_secs_f64();
+                println!("{}", 1.0 / dt.elapsed().as_secs_f64());
                 dt = Instant::now();
-                println!("FPS: {},\nDT: {}\n", 1.0 / delta_time, delta_time);
-            },
-            _ => ()
+            }
+            _ => (),
         }
     });
 }

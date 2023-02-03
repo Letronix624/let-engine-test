@@ -6,7 +6,6 @@ use std::{
 use winit::dpi::LogicalSize;
 use winit::event::ElementState;
 use winit::event::Event;
-use winit::event::KeyboardInput;
 use winit::event::VirtualKeyCode;
 use winit::event::WindowEvent;
 use winit::window::WindowBuilder;
@@ -67,14 +66,13 @@ fn main() {
     player.graphics = Some(graphics);
     objects[0].lock().unwrap().children.push(Arc::new(Mutex::new(ObjectNode::new(player, vec![]))));
 
-    let mut player = Object::new();
-    player.position = [1.0, 0.0];
-    player.size = [1.0, 1.0];
-    player.color = [1.0, 1.0, 0.0, 1.0];
-    let graphics = VisualObject::new_square();
-    player.graphics = Some(graphics);
-    objects[0].lock().unwrap().children[1].lock().unwrap().children.push(Arc::new(Mutex::new(ObjectNode::new(player, vec![]))));
-
+    let mut text = Object::new();
+    text.graphics = Some(VisualObject::new_text("Hallo", "Bani-Regular"));
+    let text = Arc::new(Mutex::new(ObjectNode::new(
+        text.clone(),
+        vec![],
+    )));
+    objects.push(text.clone());
 
     let mut dt = Instant::now();
 
@@ -112,7 +110,7 @@ fn main() {
                 ];
                 game.objects = objects.clone();
                 game.update();
-                println!("{}", 1.0 / dt.elapsed().as_secs_f64());
+                // println!("{}", 1.0 / dt.elapsed().as_secs_f64());
                 dt = Instant::now();
             }
             _ => (),

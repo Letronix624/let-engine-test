@@ -1,7 +1,10 @@
 use let_engine::*;
+use parking_lot::Mutex;
+use image::{codecs::png, ImageDecoder};
 use std::{
-    sync::{Arc, Mutex},
+    sync::{Arc},
     time::Instant,
+    io::Cursor
 };
 use winit::dpi::LogicalSize;
 use winit::event::ElementState;
@@ -9,6 +12,7 @@ use winit::event::Event;
 use winit::event::VirtualKeyCode;
 use winit::event::WindowEvent;
 use winit::window::WindowBuilder;
+
 
 fn main() {
     let app_info = AppInfo {
@@ -21,62 +25,71 @@ fn main() {
         .with_inner_size(LogicalSize::new(800, 600))
         .with_always_on_top(false)
         .with_decorations(true)
-        .with_transparent(false);
-
-    let mut resources = Resources::new();
-    resources.add_texture("rusty", include_bytes!("../assets/textures/rustyl2.png"));
-    resources.add_font(
-        "Bani-Regular",
-        include_bytes!("../assets/fonts/Bani-Regular.ttf"),
-    );
+        .with_transparent(true)
+        .with_visible(false);
+    
 
     let (mut game, event_loop) = GameBuilder::new()
         .with_window_builder(window_builder)
         .with_app_info(app_info)
-        .with_resources(resources)
         .build();
 
-    let mut objects = vec![];
 
-    let mut player1 = Object::new();
-    player1.position = [-0.5, -0.5];
-    player1.size = [0.45, 0.45];
-    player1.color = [1.0, 0.0, 0.0, 1.0];
-    let graphics = VisualObject::new_square();
-    player1.graphics = Some(graphics);
-    let player1 = Arc::new(Mutex::new(ObjectNode::new(
-        player1.clone(),
-        vec![],
-    )));
-    objects.push(player1.clone());
+    // let image_bytes = include_bytes!("../assets/textures/placeholder.png");
+    // let image_cursor = Cursor::new(image_bytes);
 
-    let mut player = Object::new();
-    player.position = [1.0, -0.0];
-    player.size = [1.0, 1.0];
-    player.color = [0.0, 1.0, 0.0, 1.0];
-    let graphics = VisualObject::new_square();
-    player.graphics = Some(graphics);
-    objects[0].lock().unwrap().children.push(Arc::new(Mutex::new(ObjectNode::new(player, vec![]))));
+    // let decoder = png::PngDecoder::new(image_cursor).unwrap();
+    // let dimensions = decoder.dimensions();
+    // let mut buf = vec![0; (dimensions.0 * dimensions.1) as usize * 4];
+    // decoder.read_image(&mut buf).unwrap();
 
-    let mut player = Object::new();
-    player.position = [0.0, 1.0];
-    player.size = [1.0, 1.0];
-    player.color = [0.0, 0.0, 1.0, 1.0];
-    let graphics = VisualObject::new_square();
-    player.graphics = Some(graphics);
-    objects[0].lock().unwrap().children.push(Arc::new(Mutex::new(ObjectNode::new(player, vec![]))));
+    // game.load_texture("placeholder", buf, dimensions.0, dimensions.1);
 
-    let mut text = Object::new();
-    text.graphics = Some(VisualObject::new_text("Hallo", "Bani-Regular"));
-    let text = Arc::new(Mutex::new(ObjectNode::new(
-        text.clone(),
-        vec![],
-    )));
-    objects.push(text.clone());
+    // game.load_font_bytes(
+    //     "Rawr-Regular",
+    //     include_bytes!("../assets/fonts/Rawr-Regular.ttf"),
+    // );
+
+    // let background = Arc::new(Mutex::new(Object::new_square()));
+    // {
+    //     let mut background = background.lock();
+    //     background.position = [0.0, 1.0];
+    //     background.size = [1.0; 2];
+    //     background.graphics = Some(
+    //         Appearance::new_square().texture("placeholder").material(1)
+    //     );
+    // }
+
+    // game.add_object(&background);
+
+    // let mut label = Object::new_square();
+    // label.size = [1.0; 2];
+    // label.position = [0.0, 0.5];
+    // label.graphics = Some(
+    //     game.get_font_data(
+    //         "Rawr-Regular",
+    //         "Test test nice nice",
+    //         70.0,
+    //         [1.0; 4]
+    //     )
+    // );
+
+    // game.add_child_object(&background, &Arc::new(Mutex::new(label)));
+
+    //let bg = background.lock().unwrap();
+
+    //bg.size;
+
+    let someobj = Arc::new(Mutex::new(Object::new_square()));
+
+    game.add_object(&someobj);
+    
 
     let mut dt = Instant::now();
 
-    let timeline = Instant::now();
+    let mut mist = false;
+
+    game.get_window().set_visible(true);
 
     event_loop.run(move |event, _, control_flow| {
         control_flow.set_poll();
@@ -98,19 +111,35 @@ fn main() {
                 if input.state == ElementState::Pressed {
                     println!("{:?}", input.virtual_keycode);
                 }
-
-                if input.virtual_keycode == Some(VirtualKeyCode::Escape) {
-                    control_flow.set_exit();
+                match input.virtual_keycode {
+                    Some(VirtualKeyCode::Escape) => {
+                        control_flow.set_exit();
+                    }
+                    Some(VirtualKeyCode::A) => {
+                        if input.state == ElementState::Pressed {
+                            mist = true;
+                        }
+                        else {
+                            mist = false;   
+                        }
+                    }
+                    _ => ()
                 }
             }
             Event::RedrawEventsCleared => {
-                objects[0].lock().unwrap().object.position = [
-                    (timeline.elapsed().as_secs_f32() * 2.0).cos() / 3.0 -0.5,
-                    (timeline.elapsed().as_secs_f32() * 2.0).sin() / 3.0 -0.5,
-                ];
-                game.objects = objects.clone();
                 game.update();
+                let fps = (1.0 / dt.elapsed().as_secs_f64()) as u32;
+                // if mist
+                // {
+                //     println!("{}", game.contains_object(&background));   
+                //     match game.remove_object(&background) {
+                //         Ok(_) => println!("Removed success"),
+                //         Err(_) => println!("No success.")
+                //     };
+                // }
                 // println!("{}", 1.0 / dt.elapsed().as_secs_f64());
+
+                
                 dt = Instant::now();
             }
             _ => (),

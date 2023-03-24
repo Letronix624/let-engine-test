@@ -22,7 +22,7 @@ fn main() {
         .with_resizable(true)
         .with_title("Test Window")
         .with_min_inner_size(LogicalSize::new(200, 200))
-        .with_inner_size(LogicalSize::new(800, 600))
+        .with_inner_size(LogicalSize::new(1000, 1000))
         .with_always_on_top(false)
         .with_decorations(true)
         .with_transparent(true)
@@ -80,14 +80,43 @@ fn main() {
 
     //bg.size;
 
+    let layer = game.new_layer();
+
     let someobj = Arc::new(Mutex::new(Object::new_square()));
 
-    game.add_object(&someobj);
+    game.add_object(&layer, &someobj).unwrap();
+
+    let other = Arc::new(Mutex::new(Object::new()));
+
+    {
+        let mut obj = other.lock();
+        let mut some = someobj.lock();
+        obj.size = [0.1; 2];
+        obj.graphics = Some(
+            Appearance::new()
+                .data(make_circle!(10))
+                .color([0.1, 0.0, 1.0, 1.0])
+        );
+        some.camera = Some(
+            CameraOption {
+                zoom: 1.5,
+                mode: CameraScaling::Expand
+            }
+        );
+        some.position = [1.0, 0.0];
+        
+    }
+
+    game.add_object(&layer, &other).unwrap();
+
+    game.set_camera(&layer, &someobj).unwrap();
     
 
     let mut dt = Instant::now();
 
     let mut mist = false;
+
+    let mut time = Instant::now();
 
     game.get_window().set_visible(true);
 
@@ -139,6 +168,22 @@ fn main() {
                 // }
                 // println!("{}", 1.0 / dt.elapsed().as_secs_f64());
 
+                let secs = time.elapsed().as_secs_f32();
+
+                {
+                    let mut big = someobj.lock();
+                    // other.position = [
+                    //     secs.cos(),
+                    //     secs.sin(),
+                    // ];
+
+                    big.rotation = secs;
+
+                }
+
+                
+
+                
                 
                 dt = Instant::now();
             }

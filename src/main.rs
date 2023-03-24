@@ -1,5 +1,4 @@
 use let_engine::*;
-use parking_lot::Mutex;
 use image::{codecs::png, ImageDecoder};
 use std::{
     sync::{Arc},
@@ -82,41 +81,32 @@ fn main() {
 
     let layer = game.new_layer();
 
-    let someobj = Arc::new(Mutex::new(Object::new_square()));
+    let mut someobj = Object::new_square();
 
-    game.add_object(&layer, &someobj).unwrap();
+    someobj.camera = Some(
+        CameraOption {
+            zoom: 1.5,
+            mode: CameraScaling::Expand
+        }
+    );
+    someobj.position = [1.0, 0.0];
 
-    let other = Arc::new(Mutex::new(Object::new()));
+    let mut other = Object::new();
 
-    {
-        let mut obj = other.lock();
-        let mut some = someobj.lock();
-        obj.size = [0.1; 2];
-        obj.graphics = Some(
-            Appearance::new()
-                .data(make_circle!(10))
-                .color([0.1, 0.0, 1.0, 1.0])
-        );
-        some.camera = Some(
-            CameraOption {
-                zoom: 1.5,
-                mode: CameraScaling::Expand
-            }
-        );
-        some.position = [1.0, 0.0];
-        
-    }
+    other.size = [0.1; 2];
+    other.graphics = Some(
+        Appearance::new()
+            .data(make_circle!(10))
+            .color([0.1, 0.0, 1.0, 1.0])
+    );
 
-    game.add_object(&layer, &other).unwrap();
+    let someobj = game.add_object(&layer, someobj).unwrap();
+
+    let other = game.add_object(&layer, other).unwrap();
 
     game.set_camera(&layer, &someobj).unwrap();
     
-
-    let mut dt = Instant::now();
-
     let mut mist = false;
-
-    let mut time = Instant::now();
 
     game.get_window().set_visible(true);
 
@@ -157,7 +147,6 @@ fn main() {
             }
             Event::RedrawEventsCleared => {
                 game.update();
-                let fps = (1.0 / dt.elapsed().as_secs_f64()) as u32;
                 // if mist
                 // {
                 //     println!("{}", game.contains_object(&background));   
@@ -168,8 +157,6 @@ fn main() {
                 // }
                 // println!("{}", 1.0 / dt.elapsed().as_secs_f64());
 
-                let secs = time.elapsed().as_secs_f32();
-
                 {
                     let mut big = someobj.lock();
                     // other.position = [
@@ -177,15 +164,9 @@ fn main() {
                     //     secs.sin(),
                     // ];
 
-                    big.rotation = secs;
+                    big.rotation = game.time() as f32;
 
                 }
-
-                
-
-                
-                
-                dt = Instant::now();
             }
             _ => (),
         }

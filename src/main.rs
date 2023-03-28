@@ -5,6 +5,7 @@ use winit::event::VirtualKeyCode;
 use winit::event::WindowEvent;
 use winit::window::WindowBuilder;
 fn main() {
+    //yes:
     let app_info = AppInfo {
         app_name: "Let Engine Test",
     };
@@ -15,7 +16,7 @@ fn main() {
         .with_inner_size(LogicalSize::new(1000, 1000))
         .with_always_on_top(false)
         .with_decorations(true)
-        .with_transparent(false)
+        .with_transparent(true)
         .with_visible(false);
     let (mut game, event_loop) = GameBuilder::new()
         .with_window_builder(window_builder)
@@ -28,16 +29,24 @@ fn main() {
     let layer = game.new_layer();
     let mut txt = String::from("Hello there tester!");
     let fsize = 35.0;
-    let mut rtext = Object::new();
-    let mut gtext = Object::new();
-    let mut btext = Object::new();
-    rtext.graphics = game.get_font_data("Regular", &txt, fsize, [1.0, 0.0, 0.0, 1.0], NW);
-    gtext.graphics = game.get_font_data("Regular", &txt, fsize, [0.0, 1.0, 0.0, 1.0], CENTER);
-    btext.graphics = game.get_font_data("Regular", &txt, fsize, [0.0, 0.0, 1.0, 1.0], SO);
+    let rtext = Object::new().graphics(Some(
+        Appearance::new_color([1.0, 0.0, 0.0, 1.0]).size([1.0, 0.5]),
+    ));
+    let gtext = Object::new().graphics(Some(
+        Appearance::new_color([0.0, 1.0, 0.0, 1.0]).size([1.0, 0.5]),
+    ));
+    let btext = Object::new().graphics(Some(
+        Appearance::new_color([0.0, 0.0, 1.0, 1.0]).size([1.0, 0.5]),
+    ));
 
     let rtext = game.add_object(&layer, rtext).unwrap();
     let gtext = game.add_object(&layer, gtext).unwrap();
     let btext = game.add_object(&layer, btext).unwrap();
+
+    game.label(&rtext, "Regular", &txt, fsize, NW);
+    game.label(&gtext, "Regular", &txt, fsize, CENTER);
+    game.label(&btext, "Regular", &txt, fsize, SO);
+
     let camera = game.add_object(&layer, Object::new()).unwrap();
     camera.lock().camera = Some(CameraOption {
         zoom: 1.0,
@@ -64,12 +73,9 @@ fn main() {
                         _ if c != '\u{7f}' => txt.push(c),
                         _ => {}
                     }
-                    rtext.lock().graphics =
-                        game.get_font_data("Regular", &txt, fsize, [1.0, 0.0, 0.0, 1.0], NW);
-                    gtext.lock().graphics =
-                        game.get_font_data("Regular", &txt, fsize, [0.0, 1.0, 0.0, 1.0], CENTER);
-                    btext.lock().graphics =
-                        game.get_font_data("Regular", &txt, fsize, [0.0, 0.0, 1.0, 1.0], SO);
+                    game.label(&rtext, "Regular", &txt, fsize, NW);
+                    game.label(&gtext, "Regular", &txt, fsize, CENTER);
+                    game.label(&btext, "Regular", &txt, fsize, SO);
                 }
                 _ => (),
             },

@@ -22,10 +22,7 @@ fn main() {
         .with_window_builder(window_builder)
         .with_app_info(app_info)
         .build();
-    game.load_font_bytes(
-        "Regular",
-        include_bytes!("../assets/fonts/Hand-Regular.ttf"),
-    );
+    let font = game.load_font(include_bytes!("../assets/fonts/Hand-Regular.ttf"));
     let layer = game.new_layer();
     let mut txt = String::from("Hello there tester!");
     let fsize = 35.0;
@@ -43,9 +40,9 @@ fn main() {
     let gtext = game.add_object(&layer, gtext).unwrap();
     let btext = game.add_object(&layer, btext).unwrap();
 
-    game.label(&rtext, "Regular", &txt, fsize, NW);
-    game.label(&gtext, "Regular", &txt, fsize, CENTER);
-    game.label(&btext, "Regular", &txt, fsize, SO);
+    game.queue_to_label(&rtext, &font, &txt, fsize, NW);
+    game.queue_to_label(&gtext, &font, &txt, fsize, CENTER);
+    game.queue_to_label(&btext, &font, &txt, fsize, SO);
 
     let camera = game.add_object(&layer, Object::new()).unwrap();
     camera.lock().camera = Some(CameraOption {
@@ -55,10 +52,10 @@ fn main() {
     game.set_camera(&layer, &camera).unwrap();
     game.get_window().set_visible(true);
     event_loop.run(move |event, _, control_flow| {
-        control_flow.set_wait();
+        control_flow.set_poll();
+        game.update(&event);
         match event {
             Event::WindowEvent { event, .. } => match event {
-                WindowEvent::Resized(_) => game.recreate_swapchain(),
                 WindowEvent::CloseRequested => control_flow.set_exit(),
                 WindowEvent::KeyboardInput { input, .. } => {
                     if input.virtual_keycode == Some(VirtualKeyCode::Escape) {
@@ -73,16 +70,14 @@ fn main() {
                         _ if c != '\u{7f}' => txt.push(c),
                         _ => {}
                     }
-                    game.label(&rtext, "Regular", &txt, fsize, NW);
-                    game.label(&gtext, "Regular", &txt, fsize, CENTER);
-                    game.label(&btext, "Regular", &txt, fsize, SO);
+                    game.queue_to_label(&rtext, &font, &txt, fsize, NW);
+                    game.queue_to_label(&gtext, &font, &txt, fsize, CENTER);
+                    game.queue_to_label(&btext, &font, &txt, fsize, SO);
                 }
                 _ => (),
             },
-            Event::RedrawEventsCleared => {
-                game.update();
-            }
             _ => (),
         }
     });
 }
+

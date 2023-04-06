@@ -27,13 +27,13 @@ fn main() {
     let mut txt = String::from("Hello there tester!");
     let fsize = 35.0;
     let rtext = Object::new().graphics(Some(
-        Appearance::new_color([1.0, 0.0, 0.0, 1.0]).size([1.0, 0.5]),
+        Appearance::new_color([1.0, 0.0, 0.0, 1.0]),
     ));
     let gtext = Object::new().graphics(Some(
-        Appearance::new_color([0.0, 1.0, 0.0, 1.0]).size([1.0, 0.5]),
+        Appearance::new_color([0.0, 1.0, 0.0, 1.0]),
     ));
     let btext = Object::new().graphics(Some(
-        Appearance::new_color([0.0, 0.0, 1.0, 1.0]).size([1.0, 0.5]),
+        Appearance::new_color([0.0, 0.0, 1.0, 1.0]),
     ));
 
     let rtext = game.add_object(&layer, rtext).unwrap();

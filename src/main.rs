@@ -1,19 +1,18 @@
 use let_engine::*;
-use winit::dpi::LogicalSize;
+use winit::dpi::PhysicalSize;
 use winit::event::Event;
 use winit::event::VirtualKeyCode;
 use winit::event::WindowEvent;
 use winit::window::WindowBuilder;
 fn main() {
-    //yes:
     let app_info = AppInfo {
         app_name: "Let Engine Test",
     };
     let window_builder = WindowBuilder::new()
         .with_resizable(false)
         .with_title("Test Window")
-        .with_min_inner_size(LogicalSize::new(150, 150))
-        .with_inner_size(LogicalSize::new(1000, 1000))
+        .with_min_inner_size(PhysicalSize::new(150.0, 150.0))
+        .with_inner_size(PhysicalSize::new(600.0, 600.0))
         .with_always_on_top(false)
         .with_decorations(true)
         .with_transparent(true)
@@ -22,18 +21,18 @@ fn main() {
         .with_window_builder(window_builder)
         .with_app_info(app_info)
         .build();
-    let font = game.load_font(include_bytes!("../assets/fonts/Hand-Regular.ttf"));
+    let font = game.load_font(include_bytes!("../assets/fonts/FlowCircular-Regular.ttf"));
     let layer = game.new_layer();
-    let mut txt = String::from("Hello there tester!");
+    let mut txt = String::new();
     let fsize = 35.0;
     let rtext = Object::new().graphics(Some(
-        Appearance::new_color([1.0, 0.0, 0.0, 1.0]),
+        Appearance::new_color([1.0, 0.0, 0.0, 1.0]).size([0.6; 2]),
     ));
     let gtext = Object::new().graphics(Some(
-        Appearance::new_color([0.0, 1.0, 0.0, 1.0]),
+        Appearance::new_color([0.0, 1.0, 0.0, 1.0]).size([0.6; 2]),
     ));
     let btext = Object::new().graphics(Some(
-        Appearance::new_color([0.0, 0.0, 1.0, 1.0]),
+        Appearance::new_color([0.0, 0.0, 1.0, 1.0]).size([0.6; 2]),
     ));
 
     let rtext = game.add_object(&layer, rtext).unwrap();
@@ -80,4 +79,3 @@ fn main() {
         }
     });
 }
-

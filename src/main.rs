@@ -13,7 +13,6 @@ fn main() {
         .with_title("Test Window")
         .with_min_inner_size(PhysicalSize::new(150.0, 150.0))
         .with_inner_size(PhysicalSize::new(600.0, 600.0))
-        .with_always_on_top(false)
         .with_decorations(true)
         .with_transparent(true)
         .with_visible(false);

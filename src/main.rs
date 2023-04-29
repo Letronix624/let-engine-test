@@ -20,7 +20,7 @@ fn main() {
         .with_window_builder(window_builder)
         .with_app_info(app_info)
         .build();
-    let font = game.load_font(include_bytes!("../assets/fonts/FlowCircular-Regular.ttf"));
+    let font = game.load_font(include_bytes!("../assets/fonts/Px437_CL_Stingray_8x16.ttf"));
     let layer = game.new_layer();
     let mut txt = String::new();
     let fsize = 35.0;

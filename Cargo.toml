@@ -9,7 +9,7 @@ edition = "2021"
 image = "0.24.5"
 let-engine = {path = "../Let-Engine"}
 parking_lot = "0.12.1"
-winit = "0.28.3"
+winit = "0.28.5"
 
 [profile.release]
 strip = true

@@ -6,6 +6,7 @@ use winit::event::MouseScrollDelta;
 use winit::event::VirtualKeyCode;
 use winit::event::WindowEvent;
 use winit::window::WindowBuilder;
+
 fn main() {
     let window_builder = WindowBuilder::new()
         .with_resizable(true)
@@ -99,6 +100,17 @@ fn main() {
                 _ => (),
             },
             Event::MainEventsCleared => {
+
+                #[cfg(debug_assertions)]
+                game.update_gui(|ctx| {
+                    egui::TopBottomPanel::top("test").show(&ctx, |ui| {
+                        let butt = ui.button(egui::RichText::new("DIE").size(50.0));
+                        if butt.clicked() {
+                            control_flow.set_exit();
+                        }
+                    });
+                });
+
                 {
                     if input.mouse_down(&MouseButton::Left) && !last {
                         let mut object = Object::new()

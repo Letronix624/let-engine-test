@@ -139,7 +139,6 @@ fn main() {
                 _ => (),
             },
             Event::MainEventsCleared => {
-                #[cfg(debug_assertions)]
                 game.update_gui(|ctx| {
                     egui::TopBottomPanel::top("test").show(&ctx, |ui| {
                         let butt = ui.button(egui::RichText::new("DIE").size(50.0));

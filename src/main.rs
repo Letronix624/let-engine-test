@@ -1,4 +1,5 @@
-use let_engine::physics::*;
+use hashbrown::HashMap;
+use let_engine::physics::{joints::*, *};
 use let_engine::prelude::*;
 use spin_sleep::sleep;
 use std::{
@@ -16,7 +17,7 @@ const TICK_SPEED: f32 = 180.0;
 fn main() {
     let window_builder = WindowBuilder::new()
         .with_resizable(true)
-        .with_title("Test Window")
+        .with_title("Diarrhée")
         .with_min_inner_size(PhysicalSize::new(150.0, 150.0))
         .with_inner_size(PhysicalSize::new(1000.0, 700.0))
         .with_decorations(true)
@@ -28,6 +29,7 @@ fn main() {
     let resources = game.resources.clone();
     let input = game.input.clone();
     let scene = game.scene.clone();
+    let time = game.time.clone();
 
     let font = resources.load_font(include_bytes!("../assets/fonts/Px437_CL_Stingray_8x16.ttf"));
     let layer = game.scene.new_layer();
@@ -69,12 +71,12 @@ fn main() {
             ..Default::default()
         },
     );
-    layer.add_object(None, &mut rtext).unwrap();
-    layer.add_object(None, &mut gtext).unwrap();
-    layer.add_object(None, &mut btext).unwrap();
+    layer.add_object(&mut rtext);
+    layer.add_object(&mut gtext);
+    layer.add_object(&mut btext);
     let mut camera = Camera::default();
     camera.camera.mode = CameraScaling::Expand;
-    layer.add_object(None, &mut camera).unwrap();
+    layer.add_object(&mut camera);
     game.set_clear_background_color([0.35, 0.3, 0.31, 1.0]);
     layer.set_camera(camera.clone());
 
@@ -91,32 +93,35 @@ fn main() {
 
     let mut place_indicator = Object::default();
     place_indicator.appearance = Appearance::new()
+        .material(place_indicator_material.clone())
+        .data(Data {
+            vertices: vec![
+                vertex(-1.0, -1.0),
+                vertex(1.0, -1.0),
+                vertex(1.0, 1.0),
+                vertex(-1.0, 1.0),
+            ],
+            indices: vec![0, 1, 2, 3, 0],
+        });
+
+    layer.add_object(&mut place_indicator);
+
+    let mut arrow = Object::default();
+    arrow.appearance = Appearance::new()
         .material(place_indicator_material)
         .data(Data {
             vertices: vec![
-                Vertex {
-                    position: vec2(-1.0, -1.0),
-                    tex_position: vec2(-1.0, -1.0),
-                }, 
-                Vertex {
-                    position: vec2(1.0, -1.0),
-                    tex_position: vec2(1.0, -1.0),
-                }, 
-                Vertex {
-                    position: vec2(1.0, 1.0),
-                    tex_position: vec2(1.0, 1.0),
-                }, 
-                Vertex {
-                    position: vec2(-1.0, 1.0),
-                    tex_position: vec2(-1.0, 1.0),
-                }, 
-            ],   
-            indices: vec![0, 1, 2, 3, 0]
-        });
+                vertex(0.0, 0.0),    //pos from
+                vertex(1.0, 0.0),    //pos length pythagoras
+                vertex(0.95, 0.02),  //left arrow piece
+                vertex(0.95, -0.02), //right arrow piece
+            ],
+            indices: vec![0, 1, 2, 3, 1],
+        })
+        .visible(false);
+    layer.add_object(&mut arrow);
 
-    layer.add_object(None, &mut place_indicator).unwrap();
-
-    let mut platform = ColliderObject::default();
+    let mut platform = Object::default();
     platform.appearance = Appearance::new()
         .data(Data::square())
         .color([0.9, 0.9, 0.9, 1.0]);
@@ -128,7 +133,7 @@ fn main() {
     ));
     platform.set_rigid_body(Some(RigidBodyBuilder::fixed().build()));
 
-    layer.add_object(None, &mut platform).unwrap();
+    layer.add_object(&mut platform);
 
     let mut last = false;
     let mut last2 = false;
@@ -155,6 +160,12 @@ fn main() {
 
     let _tick_system = thread::spawn(|| tick_system(scene));
 
+    let mut select = false;
+    let mut selected_object: Option<Object> = None;
+    let mut targeted_object: Option<Object> = None;
+    let mut spawned_objects: HashMap<usize, Object> = HashMap::new();
+    spawned_objects.insert(platform.id(), platform);
+
     event_loop.run(move |event, _, control_flow| {
         control_flow.set_poll();
         match &event {
@@ -176,7 +187,7 @@ fn main() {
                 }
                 WindowEvent::ReceivedCharacter(c) => {
                     if egui_focused {
-                        return
+                        return;
                     };
                     match c {
                         '\u{8}' => {
@@ -209,8 +220,14 @@ fn main() {
                                 physics_params.dt = (1.0 / TICK_SPEED) * time_scale;
                                 layer.set_physics_parameters(physics_params);
                             }
-                            ui.add(egui::Slider::new(&mut object_transform.size.x, 0.01..=1.0).text("Size X"));
-                            ui.add(egui::Slider::new(&mut object_transform.size.y, 0.01..=1.0).text("Size Y"));
+                            ui.add(
+                                egui::Slider::new(&mut object_transform.size.x, 0.01..=1.0)
+                                    .text("Size X"),
+                            );
+                            ui.add(
+                                egui::Slider::new(&mut object_transform.size.y, 0.01..=1.0)
+                                    .text("Size Y"),
+                            );
                             ui.add(egui::Slider::new(&mut rotation, 0.0..=90.0).text("Rotation"));
                             object_transform.rotation = rotation.to_radians();
                         });
@@ -220,53 +237,165 @@ fn main() {
                             ui.add(egui::Slider::new(&mut color[2], 0.0..=1.0).text("Blue"));
                             ui.add(egui::Slider::new(&mut color[3], 0.0..=1.0).text("Alpha"));
                         });
-                        
+
+                        ui.horizontal(|ui| {
+                            let response = ui.button(if select { "Spawn" } else { "Select" });
+                            if response.clicked() {
+                                select = !select;
+                            }
+                            let text = if let Some(object) = &selected_object {
+                                format!("Selected Object {}", object.id())
+                            } else {
+                                "Selected None".to_string()
+                            };
+                            ui.label(text)
+                        });
+
+                        ui.label(egui::RichText::new(format!("FPS: {}", time.fps())).monospace());
                     });
-                    egui_focused = ctx.is_pointer_over_area() || ctx.is_using_pointer() || ctx.wants_keyboard_input();
+                    egui_focused = ctx.is_pointer_over_area()
+                        || ctx.is_using_pointer()
+                        || ctx.wants_keyboard_input();
                 });
                 if egui_focused {
                     return;
                 }
 
-                object_transform.position = input.cursor_to_world(&layer);
-                place_indicator.appearance.color = color;
-                place_indicator.transform = object_transform;
-                place_indicator.sync();
-                
-                {
-                    if input.mouse_down(&MouseButton::Left) && !last {
-                        let mut object = ColliderObject::default();
-                        object.set_collider(Some(
-                            ColliderBuilder::square(object_transform.size.x, object_transform.size.y) //trimesh(shape_data.clone())
+                let cursor_to_world = input.cursor_to_world(&layer);
+
+                if !select {
+                    object_transform.position = cursor_to_world;
+                    place_indicator.appearance.color = color;
+                    place_indicator.appearance.visible = true;
+                    place_indicator.transform = object_transform.size(vec2(1.0, 1.0));
+                    place_indicator.appearance.transform.size = object_transform.size;
+
+                    {
+                        if input.mouse_down(&MouseButton::Left) && !last {
+                            let mut object = Object::default();
+                            object.set_collider(Some(
+                                ColliderBuilder::square(
+                                    object_transform.size.x,
+                                    object_transform.size.y,
+                                ) //trimesh(shape_data.clone())
                                 .restitution(0.0)
                                 .restitution_combine_rule(CoefficientCombineRule::Min)
                                 .build(),
-                        ));
-                        let rigid_body_type = if fixed {
-                            RigidBodyType::Fixed
-                        } else {
-                            RigidBodyType::Dynamic
-                        };
-                        object.set_rigid_body(Some(RigidBodyBuilder::new(rigid_body_type).build()));
-                        object.appearance = Appearance::new().data(Data::square()).color(color);
-                        object.transform = object_transform;
-                        layer.add_object(None, &mut object).unwrap();
-                    }
-                    last = input.mouse_down(&MouseButton::Left);
+                            ));
+                            let rigid_body_type = if fixed {
+                                RigidBodyType::Fixed
+                            } else {
+                                RigidBodyType::Dynamic
+                            };
+                            object.set_rigid_body(Some(
+                                RigidBodyBuilder::new(rigid_body_type).build(),
+                            ));
+                            object.appearance = Appearance::new().data(Data::square()).color(color);
+                            object.transform = object_transform;
+                            object.transform.size = vec2(1.0, 1.0);
+                            object.appearance.transform.size = object_transform.size;
+                            layer.add_object(&mut object);
+                            spawned_objects.insert(object.id(), object);
+                        }
+                        last = input.mouse_down(&MouseButton::Left);
 
-                    if input.mouse_down(&MouseButton::Right) && !last2 {
-                        let id = layer.cast_ray(
-                            input.cursor_to_world(&layer),
-                            vec2(0.0, 0.0),
-                            0.0,
-                            true,
-                        );
-                        if let Some(id) = id {
-                            layer.remove_object(id).unwrap();
+                        if input.mouse_down(&MouseButton::Right) && !last2 {
+                            let id = layer.cast_ray(
+                                input.cursor_to_world(&layer),
+                                vec2(0.0, 0.0),
+                                0.0,
+                                true,
+                            );
+                            if let Some(id) = id {
+                                layer
+                                    .remove_object(spawned_objects.get_mut(&id).unwrap())
+                                    .unwrap();
+                                spawned_objects.remove(&id);
+                            }
+                        }
+                        last2 = input.mouse_down(&MouseButton::Right);
+                    }
+                } else {
+                    if input.mouse_down(&MouseButton::Left) && !last {
+                        if let Some(id) =
+                            layer.cast_ray(input.cursor_to_world(&layer), vec2(0.0, 0.0), 0.0, true)
+                        {
+                            selected_object = spawned_objects.get(&id).cloned();
                         }
                     }
-                    last2 = input.mouse_down(&MouseButton::Right);
+                    if input.mouse_down(&MouseButton::Left) {
+                        arrow.appearance.visible = true;
+                        if let Some(object) = &mut selected_object {
+                            object.update();
+                            arrow.transform.position = object.transform.position;
+                            let (length, angle) = if let Some(second_object) = layer.cast_ray(
+                                input.cursor_to_world(&layer),
+                                vec2(0.0, 0.0),
+                                0.0,
+                                true,
+                            ) {
+                                let object2 = spawned_objects.get_mut(&second_object).unwrap();
+                                object2.update();
+                                let position = object2.transform.position;
+                                targeted_object = Some(object2.clone());
+                                (
+                                    arrow.transform.position.distance(position),
+                                    angle_between(arrow.transform.position, position),
+                                )
+                            } else {
+                                targeted_object = None;
+                                (
+                                    arrow.transform.position.distance(cursor_to_world),
+                                    angle_between(arrow.transform.position, cursor_to_world),
+                                )
+                            };
+                            if length == 0.0 {
+                                arrow.appearance.visible = false;
+                            };
+                            arrow.appearance.data.vertices[1] = vertex(length, 0.0);
+                            arrow.appearance.data.vertices[2] = vertex(length - 0.05, 0.02);
+                            arrow.appearance.data.vertices[3] = vertex(length - 0.05, -0.02);
+                            arrow.transform.rotation = angle;
+                        } else {
+                            arrow.appearance.visible = false;
+                        };
+                    } else {
+                        arrow.appearance.visible = false;
+                    }
+                    if !input.mouse_down(&MouseButton::Left) && last {
+                        if let (Some(object), Some(target_object)) =
+                            (&selected_object, &targeted_object)
+                        {
+                            if object.id() != target_object.id() {
+                                let _handle = layer.add_joint(
+                                    object,
+                                    target_object,
+                                    FixedJointBuilder::new()
+                                        .local_anchor1(target_object.transform.position - object.transform.position)
+                                        .local_anchor2(vec2(0.0, 0.0)),
+                                    true,
+                                );
+                                targeted_object = None;
+                            }
+                        }
+                    }
+                    last = input.mouse_down(&MouseButton::Left);
+                    if let Some(object) = &mut selected_object {
+                        object.update();
+                        place_indicator.appearance.color = [1.0; 4];
+                        place_indicator.appearance.visible = true;
+                        place_indicator.transform = object.transform();
+                        place_indicator.appearance.transform.size =
+                            object.appearance.transform.size;
+                    } else {
+                        selected_object = None;
+                        place_indicator.appearance.visible = false;
+                    }
                 }
+                layer.move_to_top(&place_indicator).unwrap();
+                layer.move_to_top(&arrow).unwrap();
+                place_indicator.sync();
+                arrow.sync();
                 {
                     let cp = input.scaled_cursor(&layer);
                     if input.mouse_down(&MouseButton::Middle) && !right {
@@ -307,4 +436,10 @@ fn tick_system(scene: Scene) {
 
 fn tick(scene: &Scene) {
     scene.iterate_all_physics();
+}
+
+fn angle_between(x: Vec2, y: Vec2) -> f32 {
+    let point = y - x;
+    let pitch = point.y.atan2(point.x);
+    pitch
 }

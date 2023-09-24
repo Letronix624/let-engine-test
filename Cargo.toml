@@ -10,6 +10,7 @@ egui = "0.21.0"
 let-engine = { path = "../Let-Engine/engine", features = [ "egui" ] }
 winit = "0.28.5"
 spin_sleep = "*"
+hashbrown = "0.14.0"
 
 [profile.release]
 strip = true

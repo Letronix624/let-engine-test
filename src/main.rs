@@ -96,10 +96,10 @@ fn main() {
         .material(place_indicator_material.clone())
         .data(Data {
             vertices: vec![
-                vertex(-1.0, -1.0),
-                vertex(1.0, -1.0),
-                vertex(1.0, 1.0),
-                vertex(-1.0, 1.0),
+                vert(-1.0, -1.0),
+                vert(1.0, -1.0),
+                vert(1.0, 1.0),
+                vert(-1.0, 1.0),
             ],
             indices: vec![0, 1, 2, 3, 0],
         });
@@ -111,10 +111,10 @@ fn main() {
         .material(place_indicator_material)
         .data(Data {
             vertices: vec![
-                vertex(0.0, 0.0),    //pos from
-                vertex(1.0, 0.0),    //pos length pythagoras
-                vertex(0.95, 0.02),  //left arrow piece
-                vertex(0.95, -0.02), //right arrow piece
+                vert(0.0, 0.0),    //pos from
+                vert(1.0, 0.0),    //pos length pythagoras
+                vert(0.95, 0.02),  //left arrow piece
+                vert(0.95, -0.02), //right arrow piece
             ],
             indices: vec![0, 1, 2, 3, 1],
         })
@@ -352,9 +352,9 @@ fn main() {
                             if length == 0.0 {
                                 arrow.appearance.visible = false;
                             };
-                            arrow.appearance.data.vertices[1] = vertex(length, 0.0);
-                            arrow.appearance.data.vertices[2] = vertex(length - 0.05, 0.02);
-                            arrow.appearance.data.vertices[3] = vertex(length - 0.05, -0.02);
+                            arrow.appearance.data.vertices[1] = vert(length, 0.0);
+                            arrow.appearance.data.vertices[2] = vert(length - 0.05, 0.02);
+                            arrow.appearance.data.vertices[3] = vert(length - 0.05, -0.02);
                             arrow.transform.rotation = angle;
                         } else {
                             arrow.appearance.visible = false;

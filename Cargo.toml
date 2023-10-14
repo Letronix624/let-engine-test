@@ -6,10 +6,8 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-egui = "0.21.0"
 let-engine = { path = "../Let-Engine/engine", features = [ "egui" ] }
-winit = "0.28.5"
-spin_sleep = "*"
+spin_sleep = "1.1.1"
 hashbrown = "0.14.0"
 
 [profile.release]

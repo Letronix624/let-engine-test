@@ -15,8 +15,9 @@ fn main() {
         .title("Diarrhée")
         .min_inner_size(PhysicalSize::new(150.0, 150.0))
         .inner_size(PhysicalSize::new(1000.0, 700.0))
-        .clear_color(color!(rgb(90, 90, 90)))
-        .decorations(true);
+        .clear_color([0.3, 0.3, 0.3, 0.8])
+        .decorations(true)
+        .visible(false);
 
     let engine = start_engine!(window_builder);
 
@@ -29,7 +30,7 @@ fn main() {
         &font,
         LabelCreateInfo {
             appearance: Appearance::new()
-                .color(Color::from_name("red").unwrap())
+                .color([1.0, 0.0, 0.0, 1.0])
                 .transform(Transform::default().size(vec2(2.0, 2.0))),
             text: txt.clone(),
             scale: vec2(fsize, fsize),
@@ -42,7 +43,7 @@ fn main() {
         &font,
         LabelCreateInfo {
             appearance: Appearance::new()
-                .color(Color::from_name("lime").unwrap())
+                .color([0.0, 1.0, 0.0, 1.0])
                 .transform(Transform::default().size(vec2(2.0, 2.0))),
             text: txt.clone(),
             scale: vec2(fsize, fsize),
@@ -55,7 +56,7 @@ fn main() {
         &font,
         LabelCreateInfo {
             appearance: Appearance::new()
-                .color(Color::from_name("blue").unwrap())
+                .color([0.0, 0.0, 1.0, 1.0])
                 .transform(Transform::default().size(vec2(2.0, 2.0))),
             text: txt.clone(),
             scale: vec2(fsize, fsize),
@@ -63,12 +64,12 @@ fn main() {
             ..Default::default()
         },
     );
-    layer.add_object(&mut rtext);
-    layer.add_object(&mut gtext);
-    layer.add_object(&mut btext);
+    rtext.init(&layer);
+    gtext.init(&layer);
+    btext.init(&layer);
     let mut camera = Object::default();
     layer.set_camera_settings(CameraSettings::default().mode(CameraScaling::Expand));
-    layer.add_object(&mut camera);
+    camera.init(&layer);
     //game.set_clear_background_color([0.35, 0.3, 0.31, 1.0]);
     layer.set_camera(&camera);
 
@@ -103,19 +104,19 @@ fn main() {
         .material(Some(place_indicator_material.clone()))
         .model(Some(indicator_model));
 
-    layer.add_object(&mut place_indicator);
+    place_indicator.init(&layer);
 
     let mut arrow = Object::default();
     arrow.appearance = Appearance::new()
         .material(Some(place_indicator_material))
         .model(Some(arrow_model.clone()))
         .visible(false);
-    layer.add_object(&mut arrow);
+    arrow.init(&layer);
 
     let mut platform = Object::default();
     platform.appearance = Appearance::new()
         .model(Some(square.clone()))
-        .color(color!(rgb(220, 220, 220)));
+        .color([0.7, 0.7, 0.7, 1.0]);
     platform.transform.size = vec2(5.0, 0.1);
     platform.transform.position = layer.side_to_world(S, (1000.0, 700.0));
 
@@ -124,7 +125,7 @@ fn main() {
     ));
     platform.set_rigid_body(Some(RigidBodyBuilder::fixed().build()));
 
-    layer.add_object(&mut platform);
+    platform.init(&layer);
 
     let mut last = false;
     let mut last2 = false;
@@ -144,7 +145,7 @@ fn main() {
 
     let mut fixed = false;
 
-    let mut color: (u8, u8, u8, f64) = (223, 21, 21, 1.0); // default color
+    let mut color: [f32; 4] = [0.7, 0.3, 0.3, 1.0]; // default color
 
     let mut object_transform: Transform = (vec2(0.0, 0.0), vec2(0.07, 0.07), 0.0).into();
     let mut rotation: f32 = 0.0;
@@ -163,6 +164,9 @@ fn main() {
     engine.run_loop(move |event, control_flow| {
         control_flow.set_poll();
         match event {
+            Event::Ready => {
+                WINDOW.set_visible(true);
+            }
             Event::Window(event) => match event {
                 WindowEvent::CloseRequested => control_flow.set_exit(),
                 WindowEvent::MouseWheel(delta) => {
@@ -194,12 +198,12 @@ fn main() {
                         ui.add(egui::Slider::new(&mut rotation, 0.0..=90.0).text("Rotation"));
                         object_transform.rotation = rotation.to_radians();
                     });
-                    ui.horizontal(|ui| {
-                        ui.add(egui::Slider::new(&mut color.0, 0..=255).text("Red"));
-                        ui.add(egui::Slider::new(&mut color.1, 0..=255).text("Green"));
-                        ui.add(egui::Slider::new(&mut color.2, 0..=255).text("Blue"));
-                        ui.add(egui::Slider::new(&mut color.3, 0.0..=1.0).text("Alpha"));
-                    });
+                    let mut srgba: [u8; 4] = color.map(|x| (x * 255.0) as u8);
+                    let response = ui.color_edit_button_srgba_unmultiplied(&mut srgba);
+                    if response.changed() {
+                        color = srgba.map(|x| x as f32 / 255.0);
+                        dbg!(color);
+                    };
 
                     ui.horizontal(|ui| {
                         let response = ui.button(if select { "Spawn" } else { "Select" });
@@ -259,7 +263,7 @@ fn main() {
                     place_indicator.transform = object_transform.size(vec2(1.0, 1.0));
                     let appearance = place_indicator.appearance().clone();
                     place_indicator.appearance = appearance
-                        .color(Color::from_rgba(color.0, color.1, color.2, color.3).unwrap())
+                        .color(color)
                         .visible(true)
                         .transform(
                             place_indicator
@@ -288,9 +292,7 @@ fn main() {
                                 RigidBodyBuilder::new(rigid_body_type).build(),
                             ));
                             object.appearance =
-                                Appearance::new().model(Some(square.clone())).color(
-                                    Color::from_rgba(color.0, color.1, color.2, color.3).unwrap(),
-                                );
+                                Appearance::new().model(Some(square.clone())).color(color);
                             object.transform = object_transform;
                             object.transform.size = vec2(1.0, 1.0);
                             object.appearance.set_transform(
@@ -300,7 +302,7 @@ fn main() {
                                     .get_transform()
                                     .size(object_transform.size),
                             );
-                            layer.add_object(&mut object);
+                            object.init(&layer);
                             spawned_objects.insert(object.id(), object);
                         }
                         last = INPUT.mouse_down(&MouseButton::Left);
@@ -313,9 +315,7 @@ fn main() {
                                 true,
                             );
                             for id in ids {
-                                layer
-                                    .remove_object(spawned_objects.get_mut(&id).unwrap())
-                                    .unwrap();
+                                spawned_objects.get_mut(&id).unwrap().remove().unwrap();
                                 spawned_objects.remove(&id);
                             }
                         }
@@ -394,11 +394,11 @@ fn main() {
                     last = INPUT.mouse_down(&MouseButton::Left);
                     if let Some(object) = &mut selected_object {
                         object.update();
-                        place_indicator.transform = object.transform();
+                        place_indicator.transform = object.transform;
                         let appearance = place_indicator
                             .appearance()
                             .clone()
-                            .color(Color::new(255, 255, 255, 1.0))
+                            .color([1.0; 4])
                             .visible(true)
                             .transform(
                                 place_indicator

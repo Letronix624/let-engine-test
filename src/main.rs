@@ -13,13 +13,13 @@ fn main() {
     let window_builder = WindowBuilder::new()
         .resizable(true)
         .title("Diarrhée")
-        .min_inner_size(PhysicalSize::new(150.0, 150.0))
-        .inner_size(PhysicalSize::new(1000.0, 700.0))
+        .min_inner_size(vec2(150.0, 150.0))
+        .inner_size(vec2(1000.0, 700.0))
         .clear_color([0.3, 0.3, 0.3, 0.8])
         .decorations(true)
         .visible(false);
 
-    let engine = start_engine!(window_builder);
+    let engine = start_engine!(window_builder).unwrap();
 
     let font = font!(include_bytes!("../assets/fonts/Px437_CL_Stingray_8x16.ttf")).unwrap();
     let layer = SCENE.new_layer();
@@ -68,18 +68,19 @@ fn main() {
     gtext.init(&layer);
     btext.init(&layer);
     let mut camera = Object::default();
+    camera.appearance.set_visible(false);
     layer.set_camera_settings(CameraSettings::default().mode(CameraScaling::Expand));
     camera.init(&layer);
     //game.set_clear_background_color([0.35, 0.3, 0.31, 1.0]);
-    layer.set_camera(&camera);
+    layer.set_camera(&camera).unwrap();
 
     let place_indicator_material = material!(materials::MaterialSettingsBuilder::default()
         .topology(materials::Topology::LineStrip)
         .line_width(2.0)
         .build()
-        .unwrap(),);
+        .unwrap(),)
+    .unwrap();
 
-    let square = model!(Data::square());
     let indicator_model = model!(Data {
         vertices: vec![
             vert(-1.0, -1.0),
@@ -88,7 +89,8 @@ fn main() {
             vert(-1.0, 1.0),
         ],
         indices: vec![0, 1, 2, 3, 0],
-    });
+    })
+    .unwrap();
     let mut arrow_model = model!(Data {
         vertices: vec![
             vert(0.0, 0.0),    //pos from
@@ -97,28 +99,29 @@ fn main() {
             vert(0.95, -0.02), //right arrow piece
         ],
         indices: vec![0, 1, 2, 3, 1],
-    });
+    })
+    .unwrap();
 
     let mut place_indicator = Object::default();
     place_indicator.appearance = Appearance::new()
         .material(Some(place_indicator_material.clone()))
-        .model(Some(indicator_model));
+        .model(Model::Custom(indicator_model));
 
     place_indicator.init(&layer);
 
     let mut arrow = Object::default();
     arrow.appearance = Appearance::new()
         .material(Some(place_indicator_material))
-        .model(Some(arrow_model.clone()))
+        .model(Model::Custom(arrow_model.clone()))
         .visible(false);
     arrow.init(&layer);
 
+    let square = Appearance::new_instanced(Model::Square, None);
+
     let mut platform = Object::default();
-    platform.appearance = Appearance::new()
-        .model(Some(square.clone()))
-        .color([0.7, 0.7, 0.7, 1.0]);
+    platform.appearance = square.clone().color([0.7, 0.7, 0.7, 1.0]);
     platform.transform.size = vec2(5.0, 0.1);
-    platform.transform.position = layer.side_to_world(S, (1000.0, 700.0));
+    platform.transform.position = layer.side_to_world(S, vec2(1000.0, 700.0));
 
     platform.set_collider(Some(
         ColliderBuilder::square(5.0, 0.1).restitution(0.0).build(),
@@ -169,11 +172,9 @@ fn main() {
             }
             Event::Window(event) => match event {
                 WindowEvent::CloseRequested => control_flow.set_exit(),
-                WindowEvent::MouseWheel(delta) => {
-                    if let ScrollDelta::LineDelta(delta) = delta {
-                        let zoom = layer.zoom();
-                        layer.set_zoom(zoom + delta.y * zoom * 0.1);
-                    };
+                WindowEvent::MouseWheel(ScrollDelta::LineDelta(delta)) => {
+                    let zoom = layer.zoom();
+                    layer.set_zoom(zoom + delta.y * zoom * 0.1);
                 }
                 _ => (),
             },
@@ -202,7 +203,6 @@ fn main() {
                     let response = ui.color_edit_button_srgba_unmultiplied(&mut srgba);
                     if response.changed() {
                         color = srgba.map(|x| x as f32 / 255.0);
-                        dbg!(color);
                     };
 
                     ui.horizontal(|ui| {
@@ -262,15 +262,12 @@ fn main() {
                     object_transform.position = cursor_to_world;
                     place_indicator.transform = object_transform.size(vec2(1.0, 1.0));
                     let appearance = place_indicator.appearance().clone();
-                    place_indicator.appearance = appearance
-                        .color(color)
-                        .visible(true)
-                        .transform(
-                            place_indicator
-                                .appearance
-                                .get_transform()
-                                .size(object_transform.size),
-                        );
+                    place_indicator.appearance = appearance.color(color).visible(true).transform(
+                        place_indicator
+                            .appearance
+                            .get_transform()
+                            .size(object_transform.size),
+                    );
                     {
                         if INPUT.mouse_down(&MouseButton::Left) && !last {
                             let mut object = Object::default();
@@ -291,8 +288,7 @@ fn main() {
                             object.set_rigid_body(Some(
                                 RigidBodyBuilder::new(rigid_body_type).build(),
                             ));
-                            object.appearance =
-                                Appearance::new().model(Some(square.clone())).color(color);
+                            object.appearance = square.clone().color(color);
                             object.transform = object_transform;
                             object.transform.size = vec2(1.0, 1.0);
                             object.appearance.set_transform(
@@ -332,7 +328,7 @@ fn main() {
                     if INPUT.mouse_down(&MouseButton::Left) {
                         arrow.appearance.set_visible(true);
                         if let Some(object) = &mut selected_object {
-                            object.update();
+                            object.update().unwrap();
                             arrow.transform.position = object.transform.position;
                             let (length, angle) = if let Some(second_object) = layer.cast_ray(
                                 INPUT.cursor_to_world(&layer),
@@ -341,7 +337,7 @@ fn main() {
                                 true,
                             ) {
                                 let object2 = spawned_objects.get_mut(&second_object).unwrap();
-                                object2.update();
+                                object2.update().unwrap();
                                 let position = object2.transform.position;
                                 targeted_object = Some(object2.clone());
                                 (
@@ -362,8 +358,10 @@ fn main() {
                             data.vertices[1] = vert(length, 0.0);
                             data.vertices[2] = vert(length - 0.05, 0.02);
                             data.vertices[3] = vert(length - 0.05, -0.02);
-                            arrow_model = model!(data);
-                            arrow.appearance.set_model(Some(arrow_model.clone()));
+                            arrow_model = model!(data).unwrap();
+                            arrow
+                                .appearance
+                                .set_model(Model::Custom(arrow_model.clone()));
                             arrow.transform.rotation = angle;
                         } else {
                             arrow.appearance.set_visible(false);
@@ -393,7 +391,7 @@ fn main() {
                     }
                     last = INPUT.mouse_down(&MouseButton::Left);
                     if let Some(object) = &mut selected_object {
-                        object.update();
+                        object.update().unwrap();
                         place_indicator.transform = object.transform;
                         let appearance = place_indicator
                             .appearance()
@@ -415,8 +413,8 @@ fn main() {
                 }
                 layer.move_to_top(&place_indicator).unwrap();
                 layer.move_to_top(&arrow).unwrap();
-                place_indicator.sync();
-                arrow.sync();
+                place_indicator.sync().unwrap();
+                arrow.sync().unwrap();
                 {
                     let cp = INPUT.scaled_cursor(&layer);
                     if INPUT.mouse_down(&MouseButton::Middle) && !right {
@@ -433,7 +431,7 @@ fn main() {
                         camera.transform.position = shift;
                     }
                     right = INPUT.mouse_down(&MouseButton::Middle);
-                    camera.sync();
+                    camera.sync().unwrap();
                 }
             }
             _ => (),
@@ -460,6 +458,5 @@ fn tick(scene: &Scene) {
 
 fn angle_between(x: Vec2, y: Vec2) -> f32 {
     let point = y - x;
-    let pitch = point.y.atan2(point.x);
-    pitch
+    point.y.atan2(point.x)
 }

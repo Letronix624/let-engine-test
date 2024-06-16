@@ -12,10 +12,8 @@ fn main() {
         .inner_size(vec2(1000.0, 700.0))
         .clear_color([0.3, 0.3, 0.3, 0.8])
         .decorations(true);
-    let tick_reporter = TickReporter::new();
 
     let tick_settings_builder = TickSettingsBuilder::default()
-        .reporter(tick_reporter.clone())
         .tick_wait(Duration::from_secs_f32(TICK_SPEED))
         .build()
         .unwrap();
@@ -29,7 +27,7 @@ fn main() {
     )
     .unwrap();
 
-    let game = Game::new(tick_reporter);
+    let game = Game::new();
 
     engine.start(game);
 }
@@ -55,23 +53,27 @@ struct Game {
     spawned_objects: HashMap<usize, Object>,
     place_indicator: Object,
     square: Appearance,
-    rtext: Label,
-    gtext: Label,
-    btext: Label,
+    rtext: Label<Object>,
+    gtext: Label<Object>,
+    btext: Label<Object>,
     arrow: Object,
     arrow_model: ModelData,
     camera: Object,
-    tick_reporter: TickReporter,
+    fps_cap: u64,
 }
 
 impl Game {
-    pub fn new(tick_reporter: TickReporter) -> Self {
+    pub fn new() -> Self {
         let layer = SCENE.new_layer();
-        let font =
-            Font::from_bytes(include_bytes!("../assets/fonts/Px437_CL_Stingray_8x16.ttf")).unwrap();
+        let font = Font::from_vec(
+            let_engine::asset_system::asset("fonts/Px437_CL_Stingray_8x16.ttf")
+                .unwrap()
+                .to_vec(),
+        )
+        .unwrap();
         let txt = String::from("Left mouse button: spawn object\rRight mouse button: remove object\rMiddle mouse: Zoom and pan\rEdit this text with the keyboard.");
         let fsize = 35.0;
-        let mut rtext = Label::new(
+        let rtext = Label::new(
             &font,
             LabelCreateInfo {
                 appearance: Appearance::new()
@@ -79,11 +81,11 @@ impl Game {
                     .transform(Transform::default().size(vec2(2.0, 2.0))),
                 text: txt.clone(),
                 scale: vec2(fsize, fsize),
-                align: NW,
+                align: Direction::Nw,
                 ..Default::default()
             },
         );
-        let mut gtext = Label::new(
+        let gtext = Label::new(
             &font,
             LabelCreateInfo {
                 appearance: Appearance::new()
@@ -91,11 +93,11 @@ impl Game {
                     .transform(Transform::default().size(vec2(2.0, 2.0))),
                 text: txt.clone(),
                 scale: vec2(fsize, fsize),
-                align: CENTER,
+                align: Direction::Center,
                 ..Default::default()
             },
         );
-        let mut btext = Label::new(
+        let btext = Label::new(
             &font,
             LabelCreateInfo {
                 appearance: Appearance::new()
@@ -103,17 +105,17 @@ impl Game {
                     .transform(Transform::default().size(vec2(2.0, 2.0))),
                 text: txt.clone(),
                 scale: vec2(fsize, fsize),
-                align: SO,
+                align: Direction::So,
                 ..Default::default()
             },
         );
-        rtext.init(&layer);
-        gtext.init(&layer);
-        btext.init(&layer);
-        let mut camera = Object::default();
+        let rtext = rtext.init(&layer).unwrap();
+        let gtext = gtext.init(&layer).unwrap();
+        let btext = btext.init(&layer).unwrap();
+        let mut camera = NewObject::default();
         camera.appearance.set_visible(false);
         layer.set_camera_settings(CameraSettings::default().mode(CameraScaling::Expand));
-        camera.init(&layer);
+        let camera = camera.init(&layer).unwrap();
         //game.set_clear_background_color([0.35, 0.3, 0.31, 1.0]);
         layer.set_camera(&camera).unwrap();
 
@@ -123,20 +125,20 @@ impl Game {
                 .line_width(2.0)
                 .build()
                 .unwrap(),
+            None,
         )
         .unwrap();
-
-        let indicator_model = ModelData::new(Data {
-            vertices: vec![
+        static INDICATOR: Data = Data::new_fixed(
+            &[
                 vert(-1.0, -1.0),
                 vert(1.0, -1.0),
                 vert(1.0, 1.0),
                 vert(-1.0, 1.0),
             ],
-            indices: vec![0, 1, 2, 3, 0],
-        })
-        .unwrap();
-        let arrow_model = ModelData::new(Data {
+            &[0, 1, 2, 3, 0],
+        );
+        let indicator_model = ModelData::new(INDICATOR.clone()).unwrap();
+        let arrow_model = ModelData::new(Data::Dynamic {
             vertices: vec![
                 vert(0.0, 0.0),    //pos from
                 vert(1.0, 0.0),    //pos length pythagoras
@@ -147,55 +149,57 @@ impl Game {
         })
         .unwrap();
 
-        let mut place_indicator = Object::default();
+        let mut place_indicator = NewObject::default();
         place_indicator.appearance = Appearance::new()
             .material(Some(place_indicator_material.clone()))
-            .model(Model::Custom(indicator_model));
+            .model(Some(Model::Custom(indicator_model)))
+            .unwrap();
 
-        place_indicator.init(&layer);
+        let place_indicator = place_indicator.init(&layer).unwrap();
 
-        let mut arrow = Object::default();
+        let mut arrow = NewObject::default();
         arrow.appearance = Appearance::new()
             .material(Some(place_indicator_material))
-            .model(Model::Custom(arrow_model.clone()))
+            .model(Some(Model::Custom(arrow_model.clone())))
+            .unwrap()
             .visible(false);
-        arrow.init(&layer);
+        let arrow = arrow.init(&layer).unwrap();
 
         let rusty = Material::new_default_textured_instance(
             &Texture::from_bytes(
-                include_bytes!("../assets/textures/twister_tex.png"),
+                &let_engine::asset_system::asset("textures/twister_tex.png").unwrap(),
                 ImageFormat::Png,
                 4,
                 TextureSettings::default(),
             )
             .unwrap(),
-        );
+        )
+        .unwrap();
 
-        let square = Appearance::new_instanced(Model::Square, Some(rusty));
+        let square = Appearance::new_instanced(Some(Model::Square), Some(rusty));
 
-        let mut platform = Object::default();
+        let mut platform = NewObject::default();
         platform.appearance = square.clone().color([0.7, 0.7, 0.7, 1.0]);
         platform.transform.size = vec2(5.0, 0.1);
-        platform.transform.position = layer.side_to_world(S, vec2(1000.0, 700.0));
+        platform.transform.position = layer.side_to_world(vec2(2.0, -1.0));
 
         platform.set_collider(Some(
             ColliderBuilder::square(5.0, 0.1).restitution(0.0).build(),
         ));
         platform.set_rigid_body(Some(RigidBodyBuilder::fixed().build()));
 
-        platform.init(&layer);
+        let platform = platform.init(&layer).unwrap();
 
         let last = false;
         let last2 = false;
         let right = false;
-        let mouse_lock = vec2(0.0, 0.0);
-        let camera_lock = vec2(0.0, 0.0);
+        let mouse_lock = Vec2::ZERO;
+        let camera_lock = Vec2::ZERO;
         let egui_focused = false;
         let physics_params = IntegrationParameters {
             dt: TICK_SPEED,
-            max_stabilization_iterations: 3,
-            allowed_linear_error: 0.0001,
-            prediction_distance: 0.001,
+            normalized_allowed_linear_error: 0.0001,
+            normalized_prediction_distance: 0.001,
             ..Default::default()
         };
         layer.set_physics_parameters(physics_params);
@@ -211,7 +215,7 @@ impl Game {
         let selected_object: Option<Object> = None;
         let targeted_object: Option<Object> = None;
         let mut spawned_objects: HashMap<usize, Object> = HashMap::new();
-        spawned_objects.insert(platform.id(), platform);
+        spawned_objects.insert(*platform.id(), platform);
         Self {
             layer,
             txt,
@@ -238,7 +242,7 @@ impl Game {
             arrow,
             arrow_model,
             camera,
-            tick_reporter,
+            fps_cap: 0,
         }
     }
 }
@@ -266,7 +270,7 @@ impl let_engine::Game for Game {
             );
             {
                 if INPUT.mouse_down(&MouseButton::Left) && !self.last {
-                    let mut object = Object::default();
+                    let mut object = NewObject::default();
                     object.set_collider(Some(
                         ColliderBuilder::square(
                             self.object_transform.size.x,
@@ -285,7 +289,7 @@ impl let_engine::Game for Game {
                     object.appearance = self.square.clone().color(self.color);
                     object
                         .appearance
-                        .set_layer(self.spawned_objects.len() as u32 % 3)
+                        .set_layer(self.spawned_objects.len() as u32 % 4)
                         .unwrap();
                     object.transform = self.object_transform;
                     object.transform.size = vec2(1.0, 1.0);
@@ -296,8 +300,8 @@ impl let_engine::Game for Game {
                             .get_transform()
                             .size(self.object_transform.size),
                     );
-                    object.init(&self.layer);
-                    self.spawned_objects.insert(object.id(), object);
+                    let object = object.init(&self.layer).unwrap();
+                    self.spawned_objects.insert(*object.id(), object);
                 }
                 self.last = INPUT.mouse_down(&MouseButton::Left);
 
@@ -309,8 +313,7 @@ impl let_engine::Game for Game {
                         true,
                     );
                     for id in ids {
-                        self.spawned_objects.get_mut(&id).unwrap().remove().unwrap();
-                        self.spawned_objects.remove(&id);
+                        self.spawned_objects.remove(&id).unwrap().remove().unwrap();
                     }
                 }
                 self.last2 = INPUT.mouse_down(&MouseButton::Right);
@@ -355,14 +358,24 @@ impl let_engine::Game for Game {
                     if length == 0.0 {
                         self.arrow.appearance.set_visible(false);
                     };
-                    let mut data = self.arrow_model.get_data().clone();
-                    data.vertices[1] = vert(length, 0.0);
-                    data.vertices[2] = vert(length - 0.05, 0.02);
-                    data.vertices[3] = vert(length - 0.05, -0.02);
-                    self.arrow_model = ModelData::new(data).unwrap();
+                    let Data::Dynamic { vertices, indices } = self.arrow_model.data() else {
+                        panic!("What?")
+                    };
+
+                    self.arrow_model = ModelData::new(Data::Dynamic {
+                        vertices: vec![
+                            vertices[0],
+                            vert(length, 0.0),
+                            vert(length - 0.05, 0.02),
+                            vert(length - 0.05, -0.02),
+                        ],
+                        indices: indices.to_owned(),
+                    })
+                    .unwrap();
                     self.arrow
                         .appearance
-                        .set_model(Model::Custom(self.arrow_model.clone()));
+                        .set_model(Some(Model::Custom(self.arrow_model.clone())))
+                        .unwrap();
                     self.arrow.transform.rotation = angle;
                 } else {
                     self.arrow.appearance.set_visible(false);
@@ -412,8 +425,8 @@ impl let_engine::Game for Game {
                     self.place_indicator.appearance().clone().visible(false);
             }
         }
-        self.layer.move_to_top(&self.place_indicator).unwrap();
-        self.layer.move_to_top(&self.arrow).unwrap();
+        self.place_indicator.move_to_top().unwrap();
+        self.arrow.move_to_top().unwrap();
         self.place_indicator.sync().unwrap();
         self.arrow.sync().unwrap();
         {
@@ -483,49 +496,53 @@ impl let_engine::Game for Game {
                             "Selected None".to_string()
                         };
                         ui.label(text);
+                        if ui
+                            .add(egui::Slider::new(&mut self.fps_cap, 0..=180).text("fps cap"))
+                            .changed()
+                        {
+                            SETTINGS.graphics.set_fps_cap(self.fps_cap);
+                        };
                     });
 
-                    ui.label(
-                        egui::RichText::new(format!(
-                            "FPS: {}\nTick_report: {:#?}",
-                            TIME.fps(),
-                            self.tick_reporter
-                        ))
-                        .monospace(),
-                    );
+                    ui.label(egui::RichText::new(format!("FPS: {}", TIME.fps(),)).monospace());
                 });
                 self.egui_focused = ctx.is_pointer_over_area()
                     || ctx.is_using_pointer()
                     || ctx.wants_keyboard_input();
             }
-            Event::Input(input) => match input {
-                InputEvent::KeyboardInput { input } => {
-                    if input.keycode == Some(VirtualKeyCode::Escape) {
+            Event::Input(InputEvent::KeyboardInput { input }) => {
+                match input.key {
+                    Key::Named(NamedKey::Escape) => {
                         self.exit = true;
-                    } else if input.keycode == Some(VirtualKeyCode::F11)
-                        && input.state == ElementState::Released
-                    {
-                        let window = SETTINGS.window().unwrap();
-                        window.set_fullscreen(!window.fullscreen());
                     }
+                    Key::Named(NamedKey::F11) => {
+                        if input.state == ElementState::Released {
+                            let window = window().unwrap();
+                            window.set_fullscreen(if window.fullscreen().is_some() {
+                                None
+                            } else {
+                                Some(Fullscreen::Borderless(None))
+                            });
+                        }
+                    }
+                    _ => (),
                 }
-                InputEvent::ReceivedCharacter(c) => {
+                if let Some(text) = input.text {
                     if self.egui_focused {
                         return;
                     };
-                    match c {
-                        '\u{8}' => {
+                    match &*text {
+                        "\u{8}" => {
                             self.txt.pop();
                         }
-                        _ if c != '\u{7f}' => self.txt.push(c),
+                        _ if text != "\u{7f}" => self.txt += &text,
                         _ => {}
                     }
                     self.rtext.update_text(self.txt.clone());
                     self.gtext.update_text(self.txt.clone());
                     self.btext.update_text(self.txt.clone());
                 }
-                _ => (),
-            },
+            }
             _ => (),
         }
     }

@@ -6,7 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-let-engine = { path = "../let-engine/engine", features = [ "egui" ] }
+let-engine = { path = "../let-engine/let-engine", features = [ "egui", "asset_system", "zstd", "lzma", "bzip2", "deflate", "lz4", "fast-math" ] }
 hashbrown = "0.14.0"
 
 [profile.dev]
@@ -17,3 +17,4 @@ opt-level = 3
 lto = "fat"
 codegen-units = 1
 panic = "unwind"
+

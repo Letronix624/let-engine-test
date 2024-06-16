@@ -1,0 +1,3 @@
+
+compression = "lz4"
+compression_level = 3

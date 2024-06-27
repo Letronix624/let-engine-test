@@ -18,7 +18,7 @@ fn main() {
         .build()
         .unwrap();
 
-    let engine = Engine::new(
+    let mut engine = Engine::new(
         EngineSettingsBuilder::default()
             .window_settings(window_builder)
             .tick_settings(tick_settings_builder)
@@ -251,7 +251,7 @@ impl let_engine::Game for Game {
     fn exit(&self) -> bool {
         self.exit
     }
-    fn update(&mut self) {
+    async fn update(&mut self) {
         if self.egui_focused {
             return;
         }
@@ -448,7 +448,7 @@ impl let_engine::Game for Game {
             self.camera.sync().unwrap();
         }
     }
-    fn event(&mut self, event: Event) {
+    async fn event(&mut self, event: Event) {
         match event {
             Event::Window(event) => match event {
                 WindowEvent::CloseRequested => self.exit = true,

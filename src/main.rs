@@ -52,10 +52,10 @@ struct Game {
     targeted_object: Option<Object>,
     spawned_objects: HashMap<usize, Object>,
     place_indicator: Object,
-    square: Appearance,
-    rtext: Label<Object>,
-    gtext: Label<Object>,
-    btext: Label<Object>,
+    square: Option<Appearance>,
+    rtext: Option<Label<Object>>,
+    gtext: Option<Label<Object>>,
+    btext: Option<Label<Object>>,
     arrow: Object,
     arrow_model: ModelData,
     camera: Object,
@@ -65,53 +65,6 @@ struct Game {
 impl Game {
     pub fn new() -> Self {
         let layer = SCENE.new_layer();
-        let font = Font::from_vec(
-            let_engine::asset_system::asset("fonts/Px437_CL_Stingray_8x16.ttf")
-                .unwrap()
-                .to_vec(),
-        )
-        .unwrap();
-        let txt = String::from("Left mouse button: spawn object\rRight mouse button: remove object\rMiddle mouse: Zoom and pan\rEdit this text with the keyboard.");
-        let fsize = 35.0;
-        let rtext = Label::new(
-            &font,
-            LabelCreateInfo {
-                appearance: Appearance::new()
-                    .color([1.0, 0.0, 0.0, 1.0])
-                    .transform(Transform::default().size(vec2(2.0, 2.0))),
-                text: txt.clone(),
-                scale: vec2(fsize, fsize),
-                align: Direction::Nw,
-                ..Default::default()
-            },
-        );
-        let gtext = Label::new(
-            &font,
-            LabelCreateInfo {
-                appearance: Appearance::new()
-                    .color([0.0, 1.0, 0.0, 1.0])
-                    .transform(Transform::default().size(vec2(2.0, 2.0))),
-                text: txt.clone(),
-                scale: vec2(fsize, fsize),
-                align: Direction::Center,
-                ..Default::default()
-            },
-        );
-        let btext = Label::new(
-            &font,
-            LabelCreateInfo {
-                appearance: Appearance::new()
-                    .color([0.0, 0.0, 1.0, 1.0])
-                    .transform(Transform::default().size(vec2(2.0, 2.0))),
-                text: txt.clone(),
-                scale: vec2(fsize, fsize),
-                align: Direction::So,
-                ..Default::default()
-            },
-        );
-        let rtext = rtext.init(&layer).unwrap();
-        let gtext = gtext.init(&layer).unwrap();
-        let btext = btext.init(&layer).unwrap();
         let mut camera = NewObject::default();
         camera.appearance.set_visible(false);
         layer.set_camera_settings(CameraSettings::default().mode(CameraScaling::Expand));
@@ -165,31 +118,6 @@ impl Game {
             .visible(false);
         let arrow = arrow.init(&layer).unwrap();
 
-        let rusty = Material::new_default_textured_instance(
-            &Texture::from_bytes(
-                &let_engine::asset_system::asset("textures/twister_tex.png").unwrap(),
-                ImageFormat::Png,
-                4,
-                TextureSettings::default(),
-            )
-            .unwrap(),
-        )
-        .unwrap();
-
-        let square = Appearance::new_instanced(Some(Model::Square), Some(rusty));
-
-        let mut platform = NewObject::default();
-        platform.appearance = square.clone().color([0.7, 0.7, 0.7, 1.0]);
-        platform.transform.size = vec2(5.0, 0.1);
-        platform.transform.position = layer.side_to_world(vec2(2.0, -1.0));
-
-        platform.set_collider(Some(
-            ColliderBuilder::square(5.0, 0.1).restitution(0.0).build(),
-        ));
-        platform.set_rigid_body(Some(RigidBodyBuilder::fixed().build()));
-
-        let platform = platform.init(&layer).unwrap();
-
         let last = false;
         let last2 = false;
         let right = false;
@@ -214,8 +142,8 @@ impl Game {
         let select = false;
         let selected_object: Option<Object> = None;
         let targeted_object: Option<Object> = None;
-        let mut spawned_objects: HashMap<usize, Object> = HashMap::new();
-        spawned_objects.insert(*platform.id(), platform);
+        let spawned_objects: HashMap<usize, Object> = HashMap::new();
+        let txt = String::from("Left mouse button: spawn object\rRight mouse button: remove object\rMiddle mouse: Zoom and pan\rEdit this text with the keyboard.");
         Self {
             layer,
             txt,
@@ -235,10 +163,10 @@ impl Game {
             targeted_object,
             spawned_objects,
             place_indicator,
-            square,
-            rtext,
-            gtext,
-            btext,
+            square: None,
+            rtext: None,
+            gtext: None,
+            btext: None,
             arrow,
             arrow_model,
             camera,
@@ -250,6 +178,85 @@ impl Game {
 impl let_engine::Game for Game {
     fn exit(&self) -> bool {
         self.exit
+    }
+    async fn start(&mut self) {
+        let font = Font::from_vec(
+            let_engine::asset_system::asset("fonts/Px437_CL_Stingray_8x16.ttf")
+                .await
+                .unwrap()
+                .to_vec(),
+        )
+        .unwrap();
+        let fsize = 35.0;
+        let rtext = Label::new(
+            &font,
+            LabelCreateInfo {
+                appearance: Appearance::new()
+                    .color([1.0, 0.0, 0.0, 1.0])
+                    .transform(Transform::default().size(vec2(2.0, 2.0))),
+                text: self.txt.clone(),
+                scale: vec2(fsize, fsize),
+                align: Direction::Nw,
+                ..Default::default()
+            },
+        );
+        let gtext = Label::new(
+            &font,
+            LabelCreateInfo {
+                appearance: Appearance::new()
+                    .color([0.0, 1.0, 0.0, 1.0])
+                    .transform(Transform::default().size(vec2(2.0, 2.0))),
+                text: self.txt.clone(),
+                scale: vec2(fsize, fsize),
+                align: Direction::Center,
+                ..Default::default()
+            },
+        );
+        let btext = Label::new(
+            &font,
+            LabelCreateInfo {
+                appearance: Appearance::new()
+                    .color([0.0, 0.0, 1.0, 1.0])
+                    .transform(Transform::default().size(vec2(2.0, 2.0))),
+                text: self.txt.clone(),
+                scale: vec2(fsize, fsize),
+                align: Direction::So,
+                ..Default::default()
+            },
+        );
+        self.rtext = rtext.init(&self.layer).ok();
+        self.gtext = gtext.init(&self.layer).ok();
+        self.btext = btext.init(&self.layer).ok();
+
+        let rusty = Material::new_default_textured_instance(
+            &Texture::from_bytes(
+                &let_engine::asset_system::asset("textures/twister_tex.png")
+                    .await
+                    .unwrap(),
+                ImageFormat::Png,
+                4,
+                TextureSettings::default(),
+            )
+            .unwrap(),
+        )
+        .unwrap();
+
+        let square = Appearance::new_instanced(Some(Model::Square), Some(rusty));
+
+        let mut platform = NewObject::default();
+        platform.transform.size = vec2(5.0, 0.1);
+        platform.transform.position = self.layer.side_to_world(vec2(2.0, -1.0));
+        platform.appearance = square.clone().color([0.7, 0.7, 0.7, 1.0]);
+
+        self.square = Some(square);
+
+        platform.set_collider(Some(
+            ColliderBuilder::square(5.0, 0.1).restitution(0.0).build(),
+        ));
+        platform.set_rigid_body(Some(RigidBodyBuilder::fixed().build()));
+
+        let platform = platform.init(&self.layer).unwrap();
+        self.spawned_objects.insert(*platform.id(), platform);
     }
     async fn update(&mut self) {
         if self.egui_focused {
@@ -286,7 +293,9 @@ impl let_engine::Game for Game {
                         RigidBodyType::Dynamic
                     };
                     object.set_rigid_body(Some(RigidBodyBuilder::new(rigid_body_type).build()));
-                    object.appearance = self.square.clone().color(self.color);
+                    if let Some(square) = self.square.as_ref() {
+                        object.appearance = square.clone().color(self.color);
+                    }
                     object
                         .appearance
                         .set_layer(self.spawned_objects.len() as u32 % 4)
@@ -538,9 +547,9 @@ impl let_engine::Game for Game {
                         _ if text != "\u{7f}" => self.txt += &text,
                         _ => {}
                     }
-                    self.rtext.update_text(self.txt.clone());
-                    self.gtext.update_text(self.txt.clone());
-                    self.btext.update_text(self.txt.clone());
+                    self.rtext.as_mut().unwrap().update_text(self.txt.clone());
+                    self.gtext.as_mut().unwrap().update_text(self.txt.clone());
+                    self.btext.as_mut().unwrap().update_text(self.txt.clone());
                 }
             }
             _ => (),

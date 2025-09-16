@@ -1,14 +1,23 @@
 [package]
 name = "let_engine_test"
-version = "1.0.1"
-edition = "2021"
+version = "1.1.0"
+edition = "2024"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-let-engine = { path = "../let-engine/let-engine", features = [ "egui", "asset_system", "zstd", "lzma", "bzip2", "deflate", "lz4", "fast-math" ] }
-hashbrown = "0.14.0"
-
+let-engine-widgets = { path = "../let-engine/widgets" }
+let-engine = { path = "../let-engine/let-engine", features = [
+  "egui",
+  "asset_system",
+  "zstd",
+  "lzma",
+  "bzip2",
+  "deflate",
+  "lz4",
+  "fast-math",
+] }
+egui = "0.31"
 [profile.dev]
 panic = "unwind"
 
@@ -17,4 +26,3 @@ opt-level = 3
 lto = "fat"
 codegen-units = 1
 panic = "unwind"
-
